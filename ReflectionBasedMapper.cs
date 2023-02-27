@@ -2,16 +2,9 @@
 using MapperTest;
 using System.Reflection;
 
-public interface IMapper
-{
-  TDest Map<TSource, TDest>(TSource source);
-  TDest Map<TDest>(object source);
-  object Map(Type destType, object source);
-}
-
 public interface ICustomTypeMapper {
   bool CanMap(Type source, Type dest);
-  object Map(Mapper map, Type dest, object sourceObj);
+  object Map(ReflectionBasedMapper map, Type dest, object sourceObj);
 }
 
 internal class ListToArrayMapper : ICustomTypeMapper 
@@ -20,7 +13,7 @@ internal class ListToArrayMapper : ICustomTypeMapper
     return dest.IsSZArray && source.IsGenericType && source.GetGenericTypeDefinition() == typeof(List<>);
   }
 
-  public object Map(Mapper mapper, Type dest, object sourceObj) {
+  public object Map(ReflectionBasedMapper mapper, Type dest, object sourceObj) {
     var method = GetType().GetMethod(nameof(MapInternal), BindingFlags.NonPublic | BindingFlags.Static)!
       .MakeGenericMethod(sourceObj.GetType().GetGenericArguments()[0], dest.GetElementType()!);
     return method.Invoke(null, new [] { mapper, sourceObj });
@@ -29,12 +22,12 @@ internal class ListToArrayMapper : ICustomTypeMapper
   private static TDest[] MapInternal<TSource, TDest>(IMapper mapper, List<TSource> sources) => sources.Select(x => mapper.Map<TDest>(x)).ToArray();
 }
 
-public class Mapper : IMapper
+public class ReflectionBasedMapper : IMapper
 {
   private readonly MapperConfiguration _configuration;
   private readonly IEnumerable<ICustomTypeMapper> _customTypeMappers;
 
-  public Mapper(MapperConfiguration configuration, IEnumerable<ICustomTypeMapper> customTypeMappers)
+  public ReflectionBasedMapper(MapperConfiguration configuration, IEnumerable<ICustomTypeMapper> customTypeMappers)
   {
     _configuration = configuration;
     _customTypeMappers = customTypeMappers.ToList();
@@ -69,13 +62,13 @@ public class Mapper : IMapper
   {
     var result = ResolveInternal(parameterInfo, sourceProperties, source);
 
-    if (result != null && result.GetType() != parameterInfo.ParameterType)
+    if (result.GetType() != parameterInfo.ParameterType)
       return Map(parameterInfo.ParameterType, result);
 
     return result;
   }
 
-  private static object? ResolveInternal(ParameterInfo parameterInfo, PropertyInfo[] sourceProperties, object source) {
+  private static object ResolveInternal(ParameterInfo parameterInfo, PropertyInfo[] sourceProperties, object source) {
     var prop = sourceProperties.FirstOrDefault(x => x.Name == parameterInfo.Name);
 
     if (prop != null)
