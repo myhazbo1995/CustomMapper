@@ -69,13 +69,13 @@ public class Mapper : IMapper
   {
     var result = ResolveInternal(parameterInfo, sourceProperties, source);
 
-    if (result.GetType() != parameterInfo.ParameterType)
+    if (result != null && result.GetType() != parameterInfo.ParameterType)
       return Map(parameterInfo.ParameterType, result);
 
     return result;
   }
 
-  private static object ResolveInternal(ParameterInfo parameterInfo, PropertyInfo[] sourceProperties, object source) {
+  private static object? ResolveInternal(ParameterInfo parameterInfo, PropertyInfo[] sourceProperties, object source) {
     var prop = sourceProperties.FirstOrDefault(x => x.Name == parameterInfo.Name);
 
     if (prop != null)
